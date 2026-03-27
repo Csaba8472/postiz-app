@@ -14,6 +14,7 @@ import { SettingsController } from '@gitroom/backend/api/routes/settings.control
 import { PostsController } from '@gitroom/backend/api/routes/posts.controller';
 import { MediaController } from '@gitroom/backend/api/routes/media.controller';
 import { UploadModule } from '@gitroom/nestjs-libraries/upload/upload.module';
+import { OpenClawModule } from '@gitroom/nestjs-libraries/src/openclaw/openclaw.module';
 import { BillingController } from '@gitroom/backend/api/routes/billing.controller';
 import { NotificationsController } from '@gitroom/backend/api/routes/notifications.controller';
 import { OpenaiService } from '@gitroom/nestjs-libraries/openai/openai.service';
@@ -35,7 +36,10 @@ import { NoAuthIntegrationsController } from '@gitroom/backend/api/routes/no.aut
 import { EnterpriseController } from '@gitroom/backend/api/routes/enterprise.controller';
 import { OAuthAppController } from '@gitroom/backend/api/routes/oauth-app.controller';
 import { ApprovedAppsController } from '@gitroom/backend/api/routes/approved-apps.controller';
-import { OAuthController, OAuthAuthorizedController } from '@gitroom/backend/api/routes/oauth.controller';
+import {
+  OAuthController,
+  OAuthAuthorizedController,
+} from '@gitroom/backend/api/routes/oauth.controller';
 import { AnnouncementsController } from '@gitroom/backend/api/routes/announcements.controller';
 import { AuthProviderManager } from '@gitroom/backend/services/auth/providers/providers.manager';
 import { GithubProvider } from '@gitroom/backend/services/auth/providers/github.provider';
@@ -65,7 +69,7 @@ const authenticatedController = [
   AnnouncementsController,
 ];
 @Module({
-  imports: [UploadModule],
+  imports: [UploadModule, OpenClawModule],
   controllers: [
     RootController,
     StripeController,
