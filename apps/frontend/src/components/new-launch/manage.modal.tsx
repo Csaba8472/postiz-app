@@ -44,6 +44,8 @@ import { useHasScroll } from '@gitroom/frontend/components/ui/is.scroll.hook';
 import { useShortlinkPreference } from '@gitroom/frontend/components/settings/shortlink-preference.component';
 import dayjs from 'dayjs';
 import { Button } from '@gitroom/react/form/button';
+import { useOpenClawSkillRunner } from '@gitroom/helpers/hooks/use-openclaw-skills';
+import { useDebouncedCallback } from 'use-debounce';
 
 function countCharacters(text: string, type: string): number {
   if (type !== 'x') {
@@ -62,6 +64,11 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
   const modal = useModals();
   const [showSettings, setShowSettings] = useState(false);
   const { data: shortlinkPreferenceData } = useShortlinkPreference();
+  const runSkill = useOpenClawSkillRunner();
+  const [aiSuggestions, setAiSuggestions] = useState<any>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [showAiPanel, setShowAiPanel] = useState(true);
 
   const { addEditSets, mutate, customClose, dummy } = props;
 
@@ -80,6 +87,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
     current,
     activateExitButton,
     setHide,
+    global,
   } = useLaunchStore(
     useShallow((state) => ({
       hide: state.hide,
@@ -96,8 +104,45 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
       setSelectedIntegrations: state.setSelectedIntegrations,
       locked: state.locked,
       activateExitButton: state.activateExitButton,
-    }))
+      global: state.global,
+    })),
   );
+
+  const fetchAiSuggestions = useDebouncedCallback(async (content: string) => {
+    if (!content || content.length < 10) {
+      setAiSuggestions(null);
+      return;
+    }
+
+    setAiLoading(true);
+    setAiError(null);
+
+    try {
+      const result = await runSkill('seo-geo-claude', { content });
+      if (result.status === 'failed') {
+        setAiError(result.output?.error || 'Failed to get AI suggestions');
+        setAiSuggestions(null);
+      } else {
+        setAiSuggestions(result.output);
+      }
+    } catch (error) {
+      setAiError((error as Error).message);
+      setAiSuggestions(null);
+    } finally {
+      setAiLoading(false);
+    }
+  }, 1000);
+
+  useEffect(() => {
+    const content = global?.[0]?.content || '';
+    const strippedContent = stripHtmlValidation('normal', content, true);
+    if (strippedContent.length >= 10) {
+      fetchAiSuggestions(strippedContent);
+    } else {
+      setAiSuggestions(null);
+      setAiError(null);
+    }
+  }, [global]);
 
   useEffect(() => {
     if (hide) {
@@ -142,16 +187,16 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
   const changeCustomer = useCallback(
     (customer: string) => {
       const neededIntegrations = integrations.filter(
-        (p) => p?.customer?.id === customer
+        (p) => p?.customer?.id === customer,
       );
       setSelectedIntegrations(
         neededIntegrations.map((p) => ({
           settings: {},
           selectedIntegrations: p,
-        }))
+        })),
       );
     },
-    [integrations]
+    [integrations],
   );
 
   const askClose = useCallback(async () => {
@@ -163,9 +208,9 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
       await deleteDialog(
         t(
           'are_you_sure_you_want_to_close_this_modal_all_data_will_be_lost',
-          'Are you sure you want to close this modal? (all data will be lost)'
+          'Are you sure you want to close this modal? (all data will be lost)',
         ),
-        t('yes_close_it', 'Yes, close it!')
+        t('yes_close_it', 'Yes, close it!'),
       )
     ) {
       if (customClose) {
@@ -182,9 +227,9 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
       !(await deleteDialog(
         t(
           'are_you_sure_you_want_to_delete_post',
-          'Are you sure you want to delete this post?'
+          'Are you sure you want to delete this post?',
         ),
-        t('yes_delete_it', 'Yes, delete it!')
+        t('yes_delete_it', 'Yes, delete it!'),
       ))
     ) {
       setLoading(false);
@@ -252,7 +297,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
           return (
             countCharacters(
               stripHtmlValidation('normal', a.content, true),
-              p?.integration?.identifier || ''
+              p?.integration?.identifier || '',
             ) === 0 && a.media?.length === 0
           );
         });
@@ -266,9 +311,9 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
             ' ' +
             t(
               'post_needs_content_or_image',
-              'Your post should have at least one character or one image.'
+              'Your post should have at least one character or one image.',
             ),
-          'warning'
+          'warning',
         );
         setLoading(false);
         item.preview();
@@ -282,7 +327,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
               `${capitalize(item.integration.identifier.split('-')[0])} (${
                 item.integration.name
               }): ${t('please_fix_your_settings', 'Please fix your settings')}`,
-              'warning'
+              'warning',
             );
             item.fix();
             setLoading(false);
@@ -295,7 +340,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
               `${capitalize(item.integration.identifier.split('-')[0])} (${
                 item.integration.name
               }): ${item.errors}`,
-              'warning'
+              'warning',
             );
             item.preview();
             setLoading(false);
@@ -309,7 +354,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
             const strip = stripHtmlValidation('normal', a.content, true);
             const weightedLength = countCharacters(
               strip,
-              p?.integration?.identifier || ''
+              p?.integration?.identifier || '',
             );
             const totalCharacters =
               weightedLength > strip.length ? weightedLength : strip.length;
@@ -322,9 +367,9 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
           toaster.show(
             `${item?.integration?.name} (${item?.integration?.identifier}) ${t(
               'post_is_too_long',
-              'post is too long, please fix it'
+              'post is too long, please fix it',
             )}`,
-            'warning'
+            'warning',
           );
           item.preview();
           setLoading(false);
@@ -342,7 +387,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
             method: 'POST',
             body: JSON.stringify({
               messages: checkAllValid.flatMap((p: any) =>
-                p.values.flatMap((a: any) => a.content)
+                p.values.flatMap((a: any) => a.content),
               ),
             }),
           })
@@ -357,9 +402,9 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
             shortLink = await deleteDialog(
               t(
                 'shortlink_urls_question',
-                'Do you want to shortlink the URLs? it will let you get statistics over clicks'
+                'Do you want to shortlink the URLs? it will let you get statistics over clicks',
               ),
-              t('yes_shortlink_it', 'Yes, shortlink it!')
+              t('yes_shortlink_it', 'Yes, shortlink it!'),
             );
           }
         }
@@ -390,7 +435,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                   alt,
                   thumbnail,
                   thumbnailTimestamp,
-                })
+                }),
               ) || [],
           })),
         })),
@@ -425,7 +470,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
           toaster.show(
             !existingData.integration
               ? t('added_successfully', 'Added successfully')
-              : t('updated_successfully', 'Updated successfully')
+              : t('updated_successfully', 'Updated successfully'),
           );
         }
         if (customClose) {
@@ -439,7 +484,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
         }
       }
     },
-    [ref, repeater, tags, date, addEditSets, dummy, shortlinkPreferenceData]
+    [ref, repeater, tags, date, addEditSets, dummy, shortlinkPreferenceData],
   );
 
   return (
@@ -479,10 +524,179 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                     <div
                       id="social-empty"
                       className={clsx(
-                        'pb-[16px]'
+                        'pb-[16px]',
                         // current !== 'global' && 'hidden'
                       )}
                     />
+                  </div>
+                </div>
+              </div>
+              <div className="px-[20px] pb-[20px] select-none">
+                <div className="flex flex-col rounded-[12px] gap-[12px] overflow-hidden bg-newSettings">
+                  <div
+                    onClick={() => setShowAiPanel(!showAiPanel)}
+                    className={clsx(
+                      'bg-[#612BD3] rounded-[12px] flex items-center gap-[8px] cursor-pointer p-[12px]',
+                      showAiPanel ? '!rounded-b-none' : '',
+                    )}
+                  >
+                    <div className="flex-1 text-[14px] font-[600] text-white flex items-center gap-[8px]">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-white"
+                      >
+                        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                      </svg>
+                      {t('ai_suggestions', 'AI Suggestions')}
+                    </div>
+                    <div>
+                      <ChevronDownIcon
+                        rotated={showAiPanel}
+                        className="text-white"
+                      />
+                    </div>
+                  </div>
+                  <div
+                    className={clsx(
+                      !showAiPanel ? 'hidden' : 'flex-1',
+                      'text-[14px] text-textColor font-[500] relative',
+                    )}
+                  >
+                    <div className="absolute left-0 top-0 w-full h-full flex flex-col overflow-x-hidden overflow-y-auto scrollbar scrollbar-thumb-newBgColorInner scrollbar-track-newColColor p-[12px]">
+                      {aiLoading && (
+                        <div className="flex items-center justify-center py-[20px]">
+                          <div className="animate-spin h-[20px] w-[20px] border-4 border-purple-500 border-t-transparent rounded-full" />
+                          <span className="ml-[12px]">
+                            {t('analyzing_content', 'Analyzing content...')}
+                          </span>
+                        </div>
+                      )}
+                      {aiError && !aiLoading && (
+                        <div className="flex items-start gap-[8px] text-[#FF3F3F] py-[10px]">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="text-[#FF3F3F] mt-[2px]"
+                          >
+                            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                            <path d="M12 9v4" />
+                            <path d="M12 17h.01" />
+                          </svg>
+                          <span>{aiError}</span>
+                        </div>
+                      )}
+                      {!aiLoading && !aiError && aiSuggestions && (
+                        <div className="flex flex-col gap-[16px]">
+                          {aiSuggestions.hashtags &&
+                            aiSuggestions.hashtags.length > 0 && (
+                              <div>
+                                <div className="text-[12px] font-[600] text-white mb-[8px] uppercase">
+                                  {t('hashtags', 'Hashtags')}
+                                </div>
+                                <div className="flex flex-wrap gap-[6px]">
+                                  {aiSuggestions.hashtags.map(
+                                    (tag: string, index: number) => (
+                                      <span
+                                        key={index}
+                                        className="px-[10px] py-[4px] bg-newColColor rounded-full text-[13px]"
+                                      >
+                                        {tag}
+                                      </span>
+                                    ),
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          {aiSuggestions.seoScore !== undefined && (
+                            <div>
+                              <div className="text-[12px] font-[600] text-white mb-[8px] uppercase">
+                                {t('seo_score', 'SEO Score')}
+                              </div>
+                              <div className="flex items-center gap-[10px]">
+                                <div className="flex-1 h-[8px] bg-newBgColor rounded-full overflow-hidden">
+                                  <div
+                                    className={clsx(
+                                      'h-full rounded-full transition-all',
+                                      aiSuggestions.seoScore >= 70
+                                        ? 'bg-green-500'
+                                        : aiSuggestions.seoScore >= 40
+                                          ? 'bg-yellow-500'
+                                          : 'bg-red-500',
+                                    )}
+                                    style={{
+                                      width: `${aiSuggestions.seoScore}%`,
+                                    }}
+                                  />
+                                </div>
+                                <span className="text-[14px] font-[600]">
+                                  {aiSuggestions.seoScore}/100
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          {aiSuggestions.captionOptimization && (
+                            <div>
+                              <div className="text-[12px] font-[600] text-white mb-[8px] uppercase">
+                                {t(
+                                  'caption_optimization',
+                                  'Caption Optimization',
+                                )}
+                              </div>
+                              <div className="text-[13px] leading-relaxed">
+                                {aiSuggestions.captionOptimization}
+                              </div>
+                            </div>
+                          )}
+                          {aiSuggestions.productHuntLaunchAngle && (
+                            <div>
+                              <div className="text-[12px] font-[600] text-white mb-[8px] uppercase">
+                                {t(
+                                  'product_hunt_launch',
+                                  'Product Hunt Launch',
+                                )}
+                              </div>
+                              <div className="text-[13px] leading-relaxed">
+                                {aiSuggestions.productHuntLaunchAngle}
+                              </div>
+                            </div>
+                          )}
+                          {!aiSuggestions.hashtags?.length &&
+                            aiSuggestions.seoScore === undefined &&
+                            !aiSuggestions.captionOptimization &&
+                            !aiSuggestions.productHuntLaunchAngle && (
+                              <div className="text-[13px] text-textColor">
+                                {t(
+                                  'no_suggestions_available',
+                                  'No suggestions available yet. Start typing to get AI-powered insights.',
+                                )}
+                              </div>
+                            )}
+                        </div>
+                      )}
+                      {!aiLoading && !aiError && !aiSuggestions && (
+                        <div className="text-[13px] text-textColor py-[10px]">
+                          {t(
+                            'start_typing_for_suggestions',
+                            'Start typing to get AI-powered suggestions...',
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -491,7 +705,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                 className={clsx(
                   'pb-[20px] px-[20px] select-none',
                   showSettings && 'flex-1 flex pt-[20px]',
-                  current === 'global' && 'hidden'
+                  current === 'global' && 'hidden',
                 )}
               >
                 <div className="flex-1 flex flex-col rounded-[12px] gap-[12px] overflow-hidden bg-newSettings">
@@ -499,7 +713,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                     onClick={() => setShowSettings(!showSettings)}
                     className={clsx(
                       'bg-[#612BD3] rounded-[12px] flex items-center gap-[8px] cursor-pointer p-[12px]',
-                      showSettings ? '!rounded-b-none' : ''
+                      showSettings ? '!rounded-b-none' : '',
                     )}
                   >
                     <div className="flex-1 text-[14px] font-[600] text-white">
@@ -515,7 +729,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                   <div
                     className={clsx(
                       !showSettings ? 'hidden' : 'flex-1',
-                      'text-[14px] text-textColor font-[500] relative'
+                      'text-[14px] text-textColor font-[500] relative',
                     )}
                   >
                     <div className="absolute left-0 top-0 w-full h-full flex flex-col overflow-x-hidden overflow-y-auto scrollbar scrollbar-thumb-newBgColorInner scrollbar-track-newColColor">
@@ -625,18 +839,18 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                   <div
                     className={clsx(
                       'text-[15px] font-[600]',
-                      loading && 'invisible'
+                      loading && 'invisible',
                     )}
                   >
                     {selectedIntegrations.length === 0
                       ? t('check_circles_above', 'Check the circles above')
                       : dummy
-                      ? t('create_output', 'Create output')
-                      : !existingData?.integration
-                      ? t('add_to_calendar', 'Add to calendar')
-                      : existingData?.posts?.[0]?.state === 'DRAFT'
-                      ? t('schedule', 'Schedule')
-                      : t('update', 'Update')}
+                        ? t('create_output', 'Create output')
+                        : !existingData?.integration
+                          ? t('add_to_calendar', 'Add to calendar')
+                          : existingData?.posts?.[0]?.state === 'DRAFT'
+                            ? t('schedule', 'Schedule')
+                            : t('update', 'Update')}
                   </div>
                   {!dummy && (
                     <div className="flex justify-center items-center h-[20px] w-[20px] pt-[4px] arrow-change">
@@ -681,7 +895,7 @@ After using the addPostFor{num} it will create a new addPostContentFor{num+ 1} f
           title: t('your_assistant', 'Your Assistant'),
           initial: t(
             'assistant_initial_message',
-            'Hi! I can help you to refine your social media posts.'
+            'Hi! I can help you to refine your social media posts.',
           ),
         }}
       />
