@@ -24,7 +24,15 @@ export const useOpenClawSkills = () => {
     return (await (await fetch('/openclaw/skills')).json()) as Skill[];
   }, [fetch]);
 
-  const { data, mutate, isLoading } = useSWR('openclaw/skills', load);
+  const { data, mutate, isLoading } = useSWR('openclaw/skills', load, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    revalidateIfStale: false,
+    revalidateOnMount: true,
+    refreshWhenHidden: false,
+    refreshWhenOffline: false,
+    fallbackData: [],
+  });
 
   return {
     skills: data || [],
@@ -33,17 +41,14 @@ export const useOpenClawSkills = () => {
   };
 };
 
-export const useRunOpenClawSkill = () => {
+export const runOpenClawSkill = async (
+  skillId: string,
+  input: Record<string, any>,
+): Promise<SkillResult> => {
   const fetch = useFetch();
-
-  return async (
-    skillId: string,
-    input: Record<string, any>,
-  ): Promise<SkillResult> => {
-    const response = await fetch('/openclaw/skills/run', {
-      method: 'POST',
-      body: JSON.stringify({ skillId, input }),
-    });
-    return (await response.json()) as SkillResult;
-  };
+  const response = await fetch('/openclaw/skills/run', {
+    method: 'POST',
+    body: JSON.stringify({ skillId, input }),
+  });
+  return (await response.json()) as SkillResult;
 };
