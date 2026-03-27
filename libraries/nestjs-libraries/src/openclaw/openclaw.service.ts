@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SkillDto, RunSkillDto, SkillResultDto } from './dtos/openclaw.dto';
+import {
+  SkillDto,
+  RunSkillDto,
+  SkillResultDto,
+  OpenClawSkillResponse,
+} from './dtos/openclaw.dto';
 
 @Injectable()
 export class OpenClawService {
@@ -63,7 +68,7 @@ export class OpenClawService {
         throw new Error(`OpenClaw API error: ${response.status}`);
       }
 
-      const result = await response.json();
+      const result: OpenClawSkillResponse = await response.json();
       return {
         skillId: dto.skillId,
         output: result,
