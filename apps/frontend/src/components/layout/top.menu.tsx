@@ -75,6 +75,27 @@ export const useMenuItem = () => {
       path: '/agents',
     },
     {
+      name: 'Skills',
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+        >
+          <path
+            d="M12 2L13.09 8.26L19 7L14.74 11.74L21 13L14.74 14.26L19 19L13.09 17.74L12 24L10.91 17.74L5 19L9.26 14.26L3 13L9.26 11.74L5 7L10.91 8.26L12 2Z"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ),
+      path: '/skills',
+    },
+    {
       name: t('analytics', 'Analytics'),
       icon: (
         <svg
