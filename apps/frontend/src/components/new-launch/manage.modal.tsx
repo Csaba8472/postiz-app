@@ -54,6 +54,15 @@ function countCharacters(text: string, type: string): number {
   return weightedLength(text);
 }
 
+const SEO_GEO_SKILL_ID = 'seo-geo-claude';
+
+interface AiSuggestions {
+  hashtags?: string[];
+  seoScore?: number;
+  captionOptimization?: string;
+  productHuntLaunchAngle?: string;
+}
+
 export const ManageModal: FC<AddEditModalProps> = (props) => {
   const t = useT();
   const fetch = useFetch();
@@ -65,7 +74,9 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
   const [showSettings, setShowSettings] = useState(false);
   const { data: shortlinkPreferenceData } = useShortlinkPreference();
   const runSkill = useOpenClawSkillRunner();
-  const [aiSuggestions, setAiSuggestions] = useState<any>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestions | null>(
+    null,
+  );
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [showAiPanel, setShowAiPanel] = useState(true);
@@ -108,30 +119,36 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
     })),
   );
 
-  const fetchAiSuggestions = useDebouncedCallback(async (content: string) => {
-    if (!content || content.length < 10) {
-      setAiSuggestions(null);
-      return;
-    }
+  const fetchAiSuggestions = useDebouncedCallback(
+    useCallback(
+      async (content: string) => {
+        if (!content || content.length < 10) {
+          setAiSuggestions(null);
+          return;
+        }
 
-    setAiLoading(true);
-    setAiError(null);
+        setAiLoading(true);
+        setAiError(null);
 
-    try {
-      const result = await runSkill('seo-geo-claude', { content });
-      if (result.status === 'failed') {
-        setAiError(result.output?.error || 'Failed to get AI suggestions');
-        setAiSuggestions(null);
-      } else {
-        setAiSuggestions(result.output);
-      }
-    } catch (error) {
-      setAiError((error as Error).message);
-      setAiSuggestions(null);
-    } finally {
-      setAiLoading(false);
-    }
-  }, 1000);
+        try {
+          const result = await runSkill(SEO_GEO_SKILL_ID, { content });
+          if (result.status === 'failed') {
+            setAiError(result.output?.error || 'Failed to get AI suggestions');
+            setAiSuggestions(null);
+          } else {
+            setAiSuggestions(result.output);
+          }
+        } catch (error) {
+          setAiError((error as Error).message);
+          setAiSuggestions(null);
+        } finally {
+          setAiLoading(false);
+        }
+      },
+      [runSkill],
+    ),
+    1000,
+  );
 
   useEffect(() => {
     const content = global?.[0]?.content || '';
@@ -142,7 +159,13 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
       setAiSuggestions(null);
       setAiError(null);
     }
-  }, [global]);
+  }, [global, fetchAiSuggestions]);
+
+  useEffect(() => {
+    return () => {
+      fetchAiSuggestions.cancel();
+    };
+  }, [fetchAiSuggestions]);
 
   useEffect(() => {
     if (hide) {
