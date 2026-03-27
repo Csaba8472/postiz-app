@@ -41,14 +41,16 @@ export const useOpenClawSkills = () => {
   };
 };
 
-export const runOpenClawSkill = async (
-  skillId: string,
-  input: Record<string, any>,
-): Promise<SkillResult> => {
+export const useOpenClawSkillRunner = () => {
   const fetch = useFetch();
-  const response = await fetch('/openclaw/skills/run', {
-    method: 'POST',
-    body: JSON.stringify({ skillId, input }),
-  });
-  return (await response.json()) as SkillResult;
+  return useCallback(
+    async (skillId: string, input: Record<string, any>) => {
+      const response = await fetch('/openclaw/skills/run', {
+        method: 'POST',
+        body: JSON.stringify({ skillId, input }),
+      });
+      return (await response.json()) as SkillResult;
+    },
+    [fetch],
+  );
 };
